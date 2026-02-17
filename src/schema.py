@@ -188,8 +188,9 @@ CLIENT_TYPE = {
 }
 
 CLIENT_STATUS = {
-    'uk': 'UK',
-    'name': 'NAME',
+    'uk': 'uk',       # lowercase (в отличие от clienttype_ldim который UPPERCASE)
+    'name': 'name',
+    'ncode': 'ncode',
 }
 
 # ==============================================================================
