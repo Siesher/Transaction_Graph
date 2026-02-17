@@ -13,10 +13,16 @@ PySpark ETL: извлечение данных из Hive для построен
 
 import logging
 import os
+import sys
 from typing import Optional
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
+
+# Убеждаемся, что Spark использует тот же Python что и текущая сессия.
+# На MDP путь к Python может отличаться от ожидаемого Spark'ом.
+os.environ.setdefault('PYSPARK_PYTHON', sys.executable)
+os.environ.setdefault('PYSPARK_DRIVER_PYTHON', sys.executable)
 
 from src import config
 from src import schema
@@ -500,10 +506,14 @@ def extract_seed_neighborhood(
     auth_edges_df.write.mode('overwrite').parquet(spark_paths['authority_edges'])
     salary_edges_df.write.mode('overwrite').parquet(spark_paths['salary_edges'])
 
-    # Save hop distances as separate small file
-    hop_rows = [(int(k), int(v)) for k, v in hop_distances.items()]
-    hop_df = spark.createDataFrame(hop_rows, ['client_uk', 'hop_distance'])
-    hop_df.write.mode('overwrite').parquet(spark_paths['hop_distances'])
+    # Save hop distances via Pandas (small data, avoids spark.createDataFrame
+    # which requires Python workers at /opt/anaconda37/bin/python on MDP)
+    import pandas as pd
+    hop_pdf = pd.DataFrame(
+        [(int(k), int(v)) for k, v in hop_distances.items()],
+        columns=['client_uk', 'hop_distance'],
+    )
+    hop_pdf.to_parquet(local_paths['hop_distances'], index=False)
 
     logger.info(f"Extraction complete. Files saved to {output_dir}/")
     return local_paths
