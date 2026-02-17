@@ -24,6 +24,16 @@ from src import schema
 logger = logging.getLogger(__name__)
 
 
+def _date_to_int(date_str: str) -> int:
+    """
+    Convert 'YYYY-MM-DD' string to YYYYMMDD integer.
+
+    paymentcounteragent_stran.date_part is partitioned as INT (YYYYMMDD format),
+    so date comparisons must use integer literals, not date strings.
+    """
+    return int(date_str.replace('-', ''))
+
+
 # =============================================================================
 # Hop Expansion
 # =============================================================================
@@ -47,14 +57,18 @@ def expand_hop(
     client_list = ','.join(str(int(c)) for c in current_clients)
     cols = schema.PAYMENT_COUNTERAGENT
 
+    # date_part — INT тип (YYYYMMDD), сравниваем с целыми числами
+    start_int = _date_to_int(start_date)
+    end_int = _date_to_int(end_date)
+
     # Ищем контрагентов в обоих направлениях
     query = f"""
         SELECT DISTINCT counterparty_uk FROM (
             -- Наши клиенты как плательщики → их контрагенты
             SELECT {cols['client_contr_uk']} AS counterparty_uk
             FROM {config.TABLE_PAYMENT_COUNTERAGENT}
-            WHERE {cols['date_part']} >= '{start_date}'
-              AND {cols['date_part']} <= '{end_date}'
+            WHERE {cols['date_part']} >= {start_int}
+              AND {cols['date_part']} <= {end_int}
               AND {cols['client_uk']} IN ({client_list})
               AND {cols['client_contr_uk']} IS NOT NULL
               AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
@@ -64,8 +78,8 @@ def expand_hop(
             -- Наши клиенты как контрагенты → их плательщики
             SELECT {cols['client_uk']} AS counterparty_uk
             FROM {config.TABLE_PAYMENT_COUNTERAGENT}
-            WHERE {cols['date_part']} >= '{start_date}'
-              AND {cols['date_part']} <= '{end_date}'
+            WHERE {cols['date_part']} >= {start_int}
+              AND {cols['date_part']} <= {end_int}
               AND {cols['client_contr_uk']} IN ({client_list})
               AND {cols['client_uk']} IS NOT NULL
               AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
@@ -205,11 +219,22 @@ def extract_transaction_edges(
     client_list = ','.join(str(int(c)) for c in client_uks)
     cols = schema.PAYMENT_COUNTERAGENT
 
+    # date_part — INT тип (YYYYMMDD), сравниваем с целыми числами
+    start_int = _date_to_int(start_date)
+    end_int = _date_to_int(end_date)
+
+    # Для YEAR/QUARTER конвертируем INT → DATE через CAST
+    date_expr = f"TO_DATE(CAST({cols['date_part']} AS STRING), 'yyyyMMdd')"
+
     query = f"""
         SELECT
             {cols['client_uk']} AS source_client_uk,
             {cols['client_contr_uk']} AS target_client_uk,
-            CONCAT(YEAR({cols['date_part']}), '-Q', QUARTER({cols['date_part']})) AS period,
+            CONCAT(
+                CAST(YEAR({date_expr}) AS STRING),
+                '-Q',
+                CAST(QUARTER({date_expr}) AS STRING)
+            ) AS period,
             SUM({cols['rur_amt']}) AS total_amount,
             COUNT(*) AS tx_count,
             AVG({cols['rur_amt']}) AS avg_amount,
@@ -219,8 +244,8 @@ def extract_transaction_edges(
             MIN({cols['date_part']}) AS first_tx_date,
             MAX({cols['date_part']}) AS last_tx_date
         FROM {config.TABLE_PAYMENT_COUNTERAGENT}
-        WHERE {cols['date_part']} >= '{start_date}'
-          AND {cols['date_part']} <= '{end_date}'
+        WHERE {cols['date_part']} >= {start_int}
+          AND {cols['date_part']} <= {end_int}
           AND {cols['income_flag']} = 'N'
           AND {cols['client_uk']} IN ({client_list})
           AND {cols['client_contr_uk']} IN ({client_list})
@@ -231,7 +256,11 @@ def extract_transaction_edges(
         GROUP BY
             {cols['client_uk']},
             {cols['client_contr_uk']},
-            CONCAT(YEAR({cols['date_part']}), '-Q', QUARTER({cols['date_part']}))
+            CONCAT(
+                CAST(YEAR({date_expr}) AS STRING),
+                '-Q',
+                CAST(QUARTER({date_expr}) AS STRING)
+            )
     """
 
     try:

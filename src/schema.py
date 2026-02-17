@@ -58,7 +58,10 @@ ACCOUNT = {
 # ==============================================================================
 
 PAYMENT_COUNTERAGENT = {
-    'date_part': 'date_part',                           # партиция (дата)
+    # ВАЖНО: date_part имеет тип INT в формате YYYYMMDD (не DATE!)
+    # Фильтры: date_part >= 20250101  (не строка '2025-01-01')
+    # YEAR/QUARTER: TO_DATE(CAST(date_part AS STRING), 'yyyyMMdd')
+    'date_part': 'date_part',                           # партиция INT (YYYYMMDD)
     'client_uk': 'client_uk',                           # FK → клиент банка
     'client_pin': 'client_pin',                         # ПИН клиента
     'client_contr_uk': 'client_contr_uk',               # FK → контрагент (клиент банка)
@@ -72,9 +75,11 @@ PAYMENT_COUNTERAGENT = {
     'cur_amt': 'cur_amt',                               # сумма в валюте
     'currency_uk': 'currency_uk',                       # FK → валюта
     'income_flag': 'income_flag',                       # Y=входящий, N=исходящий
-    'cashflowcategory_dk': 'cashflowcategory_dk',     # категория денежного потока
+    'value_day': 'value_day',                           # дата валютирования
+    'trn_source_no': 'trn_source_no',                   # номер транзакции (документ)
+    'cashflowcategory_dk': 'cashflowcategory_dk',       # категория денежного потока
     'trn_description': 'trn_description',               # описание транзакции
-    'bank_contr_bik_ncode': 'bank_contr_bik_ncode',   # БИК банка контрагента
+    'bank_contr_bik_ncode': 'bank_contr_bik_ncode',     # БИК банка контрагента
     'bank_contr_swift_ccode': 'bank_contr_swift_ccode', # SWIFT контрагента
     'taxpayer_client_contr_uk': 'taxpayer_client_contr_uk',
     'deleted_flag': 'deleted_flag',
