@@ -7,6 +7,8 @@ PySpark ETL: извлечение данных из Hive для построен
 Работает на MDP (JupyterLab на Hadoop-кластере).
 Все Parquet-файлы пишутся на локальную ФС через file:// префикс,
 чтобы они были доступны и для Spark, и для Pandas/pickle.
+
+ВЕРИФИЦИРОВАНО: имена колонок проверены через 00_verify_schema.ipynb (2026-02-17).
 """
 
 import logging
@@ -36,7 +38,8 @@ def expand_hop(
     Expand client set by one hop via transactions.
 
     Queries paymentcounteragent_stran for counterparties of current_clients.
-    Returns expanded set including new counterparty client_uks.
+    Uses income_flag='N' (outgoing) to find who our clients pay,
+    and income_flag='Y' (incoming) to find who pays our clients.
     """
     if not current_clients:
         return current_clients
@@ -44,22 +47,28 @@ def expand_hop(
     client_list = ','.join(str(int(c)) for c in current_clients)
     cols = schema.PAYMENT_COUNTERAGENT
 
-    # Query both directions: client as payer AND client as counteragent
+    # Ищем контрагентов в обоих направлениях
     query = f"""
         SELECT DISTINCT counterparty_uk FROM (
-            SELECT {cols['counteragent_client_uk']} AS counterparty_uk
+            -- Наши клиенты как плательщики → их контрагенты
+            SELECT {cols['client_contr_uk']} AS counterparty_uk
             FROM {config.TABLE_PAYMENT_COUNTERAGENT}
             WHERE {cols['date_part']} >= '{start_date}'
               AND {cols['date_part']} <= '{end_date}'
               AND {cols['client_uk']} IN ({client_list})
+              AND {cols['client_contr_uk']} IS NOT NULL
+              AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
 
             UNION
 
+            -- Наши клиенты как контрагенты → их плательщики
             SELECT {cols['client_uk']} AS counterparty_uk
             FROM {config.TABLE_PAYMENT_COUNTERAGENT}
             WHERE {cols['date_part']} >= '{start_date}'
               AND {cols['date_part']} <= '{end_date}'
-              AND {cols['counteragent_client_uk']} IN ({client_list})
+              AND {cols['client_contr_uk']} IN ({client_list})
+              AND {cols['client_uk']} IS NOT NULL
+              AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
         ) t
         WHERE counterparty_uk IS NOT NULL
     """
@@ -113,13 +122,12 @@ def extract_nodes(
     """
     Extract client records from client_sdim for given client_uk list.
 
-    Joins with clienttype_ldim and clientstatus_ldim.
-    Returns DataFrame with node attributes.
+    Joins with clienttype_ldim for client type name.
+    Note: clientstatus_uk does NOT exist — status derived from flags.
     """
     client_list = ','.join(str(int(c)) for c in client_uks)
     c = schema.CLIENT
     ct = schema.CLIENT_TYPE
-    cs = schema.CLIENT_STATUS
 
     query = f"""
         SELECT
@@ -131,13 +139,18 @@ def extract_nodes(
             cl.{c['resident_flag']} AS resident_flag,
             cl.{c['liquidation_flag']} AS liquidation_flag,
             cl.{c['end_date']} AS end_date,
+            cl.{c['closed_flag']} AS closed_flag,
+            cl.{c['deleted_flag']} AS deleted_flag,
             ct.{ct['name']} AS client_type_name,
-            cs.{cs['name']} AS client_status_name
+            CASE
+                WHEN cl.{c['deleted_flag']} = 'Y' THEN 'Удалён'
+                WHEN cl.{c['closed_flag']} = 'Y' THEN 'Закрыт'
+                WHEN cl.{c['liquidation_flag']} = 'Y' THEN 'Ликвидирован'
+                ELSE 'Активный'
+            END AS client_status_name
         FROM {config.TABLE_CLIENT} cl
         LEFT JOIN {config.TABLE_CLIENT_TYPE} ct
             ON cl.{c['clienttype_uk']} = ct.{ct['uk']}
-        LEFT JOIN {config.TABLE_CLIENT_STATUS} cs
-            ON cl.{c['clientstatus_uk']} = cs.{cs['uk']}
         WHERE cl.{c['uk']} IN ({client_list})
     """
 
@@ -181,8 +194,13 @@ def extract_transaction_edges(
     """
     Extract and aggregate transactions from paymentcounteragent_stran.
 
-    Groups by (source_client_uk, target_client_uk, quarter).
-    Returns aggregated DataFrame with metrics.
+    Использует income_flag='N' (исходящие платежи) для определения направления:
+    source = client_uk (плательщик), target = client_contr_uk (получатель).
+
+    Берём только income_flag='N', чтобы избежать двойного учёта
+    (та же транзакция для получателя будет income_flag='Y').
+
+    Groups by (source, target, quarter). Uses rur_amt (рублёвый эквивалент).
     """
     client_list = ','.join(str(int(c)) for c in client_uks)
     cols = schema.PAYMENT_COUNTERAGENT
@@ -190,27 +208,29 @@ def extract_transaction_edges(
     query = f"""
         SELECT
             {cols['client_uk']} AS source_client_uk,
-            {cols['counteragent_client_uk']} AS target_client_uk,
+            {cols['client_contr_uk']} AS target_client_uk,
             CONCAT(YEAR({cols['date_part']}), '-Q', QUARTER({cols['date_part']})) AS period,
-            SUM({cols['amount']}) AS total_amount,
+            SUM({cols['rur_amt']}) AS total_amount,
             COUNT(*) AS tx_count,
-            AVG({cols['amount']}) AS avg_amount,
-            STDDEV({cols['amount']}) AS std_amount,
-            MAX({cols['amount']}) AS max_amount,
-            MIN({cols['amount']}) AS min_amount,
+            AVG({cols['rur_amt']}) AS avg_amount,
+            STDDEV({cols['rur_amt']}) AS std_amount,
+            MAX({cols['rur_amt']}) AS max_amount,
+            MIN({cols['rur_amt']}) AS min_amount,
             MIN({cols['date_part']}) AS first_tx_date,
             MAX({cols['date_part']}) AS last_tx_date
         FROM {config.TABLE_PAYMENT_COUNTERAGENT}
         WHERE {cols['date_part']} >= '{start_date}'
           AND {cols['date_part']} <= '{end_date}'
+          AND {cols['income_flag']} = 'N'
           AND {cols['client_uk']} IN ({client_list})
-          AND {cols['counteragent_client_uk']} IN ({client_list})
-          AND {cols['client_uk']} != {cols['counteragent_client_uk']}
-          AND {cols['amount']} IS NOT NULL
-          AND {cols['amount']} > 0
+          AND {cols['client_contr_uk']} IN ({client_list})
+          AND {cols['client_uk']} != {cols['client_contr_uk']}
+          AND {cols['rur_amt']} IS NOT NULL
+          AND {cols['rur_amt']} > 0
+          AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
         GROUP BY
             {cols['client_uk']},
-            {cols['counteragent_client_uk']},
+            {cols['client_contr_uk']},
             CONCAT(YEAR({cols['date_part']}), '-Q', QUARTER({cols['date_part']}))
     """
 
@@ -258,25 +278,37 @@ def extract_authority_edges(
     """
     Extract authority/representative relationships.
 
-    Joins clientauthority_shist with clientauthority2clientrb_shist.
+    Использует clientauthority2clientrb_shist напрямую:
+    - client_u_uk и client_x_uk — две стороны связи
+    - c2clinkrole_uk — роль связи (FK → c2clinkrole_sdim)
+
+    Также JOIN с clientauthority_shist для дополнительных атрибутов.
     """
     client_list = ','.join(str(int(c)) for c in client_uks)
-    ca = schema.CLIENT_AUTHORITY
     rb = schema.AUTHORITY_CLIENT_RB
+    ca = schema.CLIENT_AUTHORITY
 
+    # Основной источник — clientauthority2clientrb_shist
+    # Содержит прямые связи client_u_uk ↔ client_x_uk
     query = f"""
-        SELECT
-            a.{ca['uk']} AS authority_uk,
-            a.{ca['client_uk']} AS company_client_uk,
-            r.{rb['client_uk']} AS representative_client_uk,
-            a.{ca['start_date']} AS start_date,
-            a.{ca['end_date']} AS end_date,
-            CASE WHEN a.{ca['end_date']} > CURRENT_DATE() THEN true ELSE false END AS is_active
-        FROM {config.TABLE_CLIENT_AUTHORITY} a
-        JOIN {config.TABLE_AUTHORITY_CLIENT_RB} r
-            ON a.{ca['uk']} = r.{rb['authority_uk']}
-        WHERE a.{ca['client_uk']} IN ({client_list})
-           OR r.{rb['client_uk']} IN ({client_list})
+        SELECT DISTINCT
+            r.{rb['client_u_uk']} AS company_client_uk,
+            r.{rb['client_x_uk']} AS representative_client_uk,
+            r.{rb['c2clinkrole_uk']} AS link_role_uk,
+            r.{rb['start_date']} AS start_date,
+            r.{rb['end_date']} AS end_date,
+            CASE
+                WHEN r.{rb['end_date']} > CURRENT_DATE()
+                 AND (r.{rb['deleted_flag']} IS NULL OR r.{rb['deleted_flag']} != 'Y')
+                THEN true ELSE false
+            END AS is_active
+        FROM {config.TABLE_AUTHORITY_CLIENT_RB} r
+        WHERE (r.{rb['client_u_uk']} IN ({client_list})
+               OR r.{rb['client_x_uk']} IN ({client_list}))
+          AND r.{rb['client_u_uk']} IS NOT NULL
+          AND r.{rb['client_x_uk']} IS NOT NULL
+          AND r.{rb['client_u_uk']} != r.{rb['client_x_uk']}
+          AND (r.{rb['deleted_flag']} IS NULL OR r.{rb['deleted_flag']} != 'Y')
     """
 
     df = spark.sql(query)
@@ -286,8 +318,6 @@ def extract_authority_edges(
         F.col('company_client_uk').isin(client_uks)
         & F.col('representative_client_uk').isin(client_uks)
     )
-    # Remove self-references
-    df = df.filter(F.col('company_client_uk') != F.col('representative_client_uk'))
 
     logger.info(f"Extracted {df.count()} authority edge records")
     return df
@@ -304,7 +334,9 @@ def extract_salary_edges(
     """
     Extract salary project relationships.
 
-    Joins clnt2dealsalary_shist with dealsalary_sdim.
+    Joins clnt2dealsalary_shist (сотрудник) с dealsalary_sdim (зарплатный проект).
+    Связь: dealsalary_uk → UK (dealsalary_sdim).
+    Работодатель: dealsalary_sdim.CLIENT_UK.
     """
     client_list = ','.join(str(int(c)) for c in client_uks)
     sl = schema.SALARY_DEAL_LINK
@@ -315,15 +347,21 @@ def extract_salary_edges(
             d.{sd['uk']} AS deal_uk,
             d.{sd['client_uk']} AS employer_client_uk,
             l.{sl['client_uk']} AS employee_client_uk,
-            l.{sl['account_number']} AS account_number,
+            l.{sl['account_main_number']} AS account_number,
             l.{sl['start_date']} AS start_date,
             l.{sl['end_date']} AS end_date,
-            CASE WHEN l.{sl['end_date']} > CURRENT_DATE() THEN true ELSE false END AS is_active
+            CASE
+                WHEN l.{sl['end_date']} > CURRENT_DATE()
+                 AND (l.{sl['deleted_flag']} IS NULL OR l.{sl['deleted_flag']} != 'Y')
+                THEN true ELSE false
+            END AS is_active
         FROM {config.TABLE_SALARY_DEAL_LINK} l
         JOIN {config.TABLE_SALARY_DEAL} d
-            ON l.{sl['deal_uk']} = d.{sd['uk']}
-        WHERE d.{sd['client_uk']} IN ({client_list})
-           OR l.{sl['client_uk']} IN ({client_list})
+            ON l.{sl['dealsalary_uk']} = d.{sd['uk']}
+        WHERE (d.{sd['client_uk']} IN ({client_list})
+               OR l.{sl['client_uk']} IN ({client_list}))
+          AND (l.{sl['deleted_flag']} IS NULL OR l.{sl['deleted_flag']} != 'Y')
+          AND (d.{sd['deleted_flag']} IS NULL OR d.{sd['deleted_flag']} != 'Y')
     """
 
     df = spark.sql(query)
