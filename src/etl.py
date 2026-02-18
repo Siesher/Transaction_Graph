@@ -14,8 +14,10 @@ PySpark ETL: извлечение данных из Hive для построен
 import logging
 import os
 import sys
+import tempfile
 from typing import Optional
 
+import pandas as pd
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 
@@ -29,6 +31,10 @@ from src import schema
 
 logger = logging.getLogger(__name__)
 
+# Порог для переключения с IN-клаузы на JOIN через temp view.
+# SQL IN с тысячами значений вызывает OOM и деградацию производительности.
+_IN_CLAUSE_LIMIT = 500
+
 
 def _date_to_int(date_str: str) -> int:
     """
@@ -40,6 +46,41 @@ def _date_to_int(date_str: str) -> int:
     return int(date_str.replace('-', ''))
 
 
+def _register_client_temp_view(
+    spark: SparkSession,
+    client_uks: set,
+    view_name: str = 'clients_tmp',
+    tmp_dir: str = '/tmp',
+) -> str:
+    """
+    Записывает набор client_uk в Parquet через Pandas и регистрирует
+    как Spark temp view для использования в JOIN вместо IN-клаузы.
+
+    Избегает spark.createDataFrame() (требует Python worker на MDP).
+    Возвращает имя зарегистрированного view.
+    """
+    pdf = pd.DataFrame({'uk': [float(c) for c in client_uks]})
+    tmp_path = os.path.join(tmp_dir, f'{view_name}.parquet')
+    pdf.to_parquet(tmp_path, index=False)
+    spark.read.parquet(f'file://{tmp_path}').createOrReplaceTempView(view_name)
+    logger.info(f"Registered temp view '{view_name}' with {len(client_uks)} clients")
+    return view_name
+
+
+def _make_filter(col: str, client_uks: set, view_name: str) -> str:
+    """
+    Возвращает SQL-фрагмент для фильтрации по набору client_uk.
+
+    При малом наборе — IN-клауза (быстро).
+    При большом — EXISTS с temp view (без OOM).
+    """
+    if len(client_uks) <= _IN_CLAUSE_LIMIT:
+        vals = ','.join(str(int(c)) for c in client_uks)
+        return f"{col} IN ({vals})"
+    else:
+        return f"EXISTS (SELECT 1 FROM {view_name} t WHERE t.uk = {col})"
+
+
 # =============================================================================
 # Hop Expansion
 # =============================================================================
@@ -49,48 +90,64 @@ def expand_hop(
     current_clients: set,
     start_date: str,
     end_date: str,
+    min_tx_count: int = 3,
 ) -> set:
     """
     Expand client set by one hop via transactions.
 
-    Queries paymentcounteragent_stran for counterparties of current_clients.
-    Uses income_flag='N' (outgoing) to find who our clients pay,
-    and income_flag='Y' (incoming) to find who pays our clients.
+    Только контрагенты с >= min_tx_count транзакций включаются.
+    Это предотвращает взрывной рост через крупные хабы.
+
+    При large client set использует JOIN через temp view вместо IN.
     """
     if not current_clients:
         return current_clients
 
-    client_list = ','.join(str(int(c)) for c in current_clients)
     cols = schema.PAYMENT_COUNTERAGENT
-
-    # date_part — INT тип (YYYYMMDD), сравниваем с целыми числами
     start_int = _date_to_int(start_date)
     end_int = _date_to_int(end_date)
 
-    # Ищем контрагентов в обоих направлениях
+    # Регистрируем temp view если набор большой
+    if len(current_clients) > _IN_CLAUSE_LIMIT:
+        _register_client_temp_view(spark, current_clients, 'hop_clients_tmp')
+        client_filter_out = f"EXISTS (SELECT 1 FROM hop_clients_tmp t WHERE t.uk = {cols['client_uk']})"
+        client_filter_in  = f"EXISTS (SELECT 1 FROM hop_clients_tmp t WHERE t.uk = {cols['client_contr_uk']})"
+    else:
+        cl_list = ','.join(str(int(c)) for c in current_clients)
+        client_filter_out = f"{cols['client_uk']} IN ({cl_list})"
+        client_filter_in  = f"{cols['client_contr_uk']} IN ({cl_list})"
+
+    # Ищем контрагентов в обоих направлениях, фильтруем по min_tx_count
     query = f"""
-        SELECT DISTINCT counterparty_uk FROM (
+        SELECT counterparty_uk FROM (
             -- Наши клиенты как плательщики → их контрагенты
-            SELECT {cols['client_contr_uk']} AS counterparty_uk
+            SELECT {cols['client_contr_uk']} AS counterparty_uk,
+                   COUNT(*) AS tx_cnt
             FROM {config.TABLE_PAYMENT_COUNTERAGENT}
             WHERE {cols['date_part']} >= {start_int}
               AND {cols['date_part']} <= {end_int}
-              AND {cols['client_uk']} IN ({client_list})
+              AND {client_filter_out}
               AND {cols['client_contr_uk']} IS NOT NULL
               AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
+            GROUP BY {cols['client_contr_uk']}
+            HAVING COUNT(*) >= {min_tx_count}
 
-            UNION
+            UNION ALL
 
             -- Наши клиенты как контрагенты → их плательщики
-            SELECT {cols['client_uk']} AS counterparty_uk
+            SELECT {cols['client_uk']} AS counterparty_uk,
+                   COUNT(*) AS tx_cnt
             FROM {config.TABLE_PAYMENT_COUNTERAGENT}
             WHERE {cols['date_part']} >= {start_int}
               AND {cols['date_part']} <= {end_int}
-              AND {cols['client_contr_uk']} IN ({client_list})
+              AND {client_filter_in}
               AND {cols['client_uk']} IS NOT NULL
               AND ({cols['deleted_flag']} IS NULL OR {cols['deleted_flag']} != 'Y')
+            GROUP BY {cols['client_uk']}
+            HAVING COUNT(*) >= {min_tx_count}
         ) t
         WHERE counterparty_uk IS NOT NULL
+        GROUP BY counterparty_uk
     """
 
     try:
@@ -99,14 +156,14 @@ def expand_hop(
         expanded = current_clients | new_clients
         logger.info(
             f"Hop expanded: {len(current_clients)} -> {len(expanded)} "
-            f"(+{len(expanded - current_clients)} new)"
+            f"(+{len(expanded - current_clients)} new, min_tx_count={min_tx_count})"
         )
         return expanded
     except Exception as e:
         if 'partition' in str(e).lower() and 'limit' in str(e).lower():
             logger.warning(f"Partition limit hit, narrowing date range: {e}")
             return _expand_hop_with_date_fallback(
-                spark, current_clients, start_date, end_date
+                spark, current_clients, start_date, end_date, min_tx_count
             )
         raise
 
@@ -116,9 +173,10 @@ def _expand_hop_with_date_fallback(
     current_clients: set,
     start_date: str,
     end_date: str,
+    min_tx_count: int = 3,
 ) -> set:
     """Fallback: split date range in half and merge results."""
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     d_start = datetime.strptime(start_date, '%Y-%m-%d')
     d_end = datetime.strptime(end_date, '%Y-%m-%d')
@@ -126,8 +184,8 @@ def _expand_hop_with_date_fallback(
     mid_str = d_mid.strftime('%Y-%m-%d')
 
     logger.info(f"Splitting date range: [{start_date}, {mid_str}] + [{mid_str}, {end_date}]")
-    set1 = expand_hop(spark, current_clients, start_date, mid_str)
-    set2 = expand_hop(spark, current_clients, mid_str, end_date)
+    set1 = expand_hop(spark, current_clients, start_date, mid_str, min_tx_count)
+    set2 = expand_hop(spark, current_clients, mid_str, end_date, min_tx_count)
     return set1 | set2
 
 
@@ -144,13 +202,21 @@ def extract_nodes(
 
     Joins with clienttype_ldim for client type name.
     Note: clientstatus_uk does NOT exist — status derived from flags.
+    При large client set использует JOIN через temp view.
     """
-    client_list = ','.join(str(int(c)) for c in client_uks)
     c = schema.CLIENT
     ct = schema.CLIENT_TYPE
 
+    client_set = set(client_uks)
+    if len(client_set) > _IN_CLAUSE_LIMIT:
+        _register_client_temp_view(spark, client_set, 'nodes_clients_tmp')
+        where_clause = f"EXISTS (SELECT 1 FROM nodes_clients_tmp t WHERE t.uk = cl.{c['uk']})"
+    else:
+        cl_list = ','.join(str(int(c_)) for c_ in client_uks)
+        where_clause = f"cl.{c['uk']} IN ({cl_list})"
+
     # ВАЖНО: первичный ключ client_sdim — 'uk', не 'client_uk'!
-    # liquidation_flag, closed_flag, dead_flag — не существуют, статус = deleted_flag
+    # liquidation_flag, closed_flag, dead_flag — не существуют, статус = deleted_flag + end_date
     query = f"""
         SELECT
             cl.{c['uk']} AS client_uk,
@@ -175,13 +241,20 @@ def extract_nodes(
         FROM {config.TABLE_CLIENT} cl
         LEFT JOIN {config.TABLE_CLIENT_TYPE} ct
             ON cl.{c['clienttype_uk']} = ct.{ct['uk']}
-        WHERE cl.{c['uk']} IN ({client_list})
+        WHERE {where_clause}
     """
 
     df = spark.sql(query)
 
-    # Add INN from account_sdim (first non-null taxpayer code per client)
+    # Add INN from account_sdim
     a = schema.ACCOUNT
+    if len(client_set) > _IN_CLAUSE_LIMIT:
+        _register_client_temp_view(spark, client_set, 'nodes_clients_tmp')
+        inn_where = f"EXISTS (SELECT 1 FROM nodes_clients_tmp t WHERE t.uk = {a['client_uk']})"
+    else:
+        cl_list = ','.join(str(int(c_)) for c_ in client_uks)
+        inn_where = f"{a['client_uk']} IN ({cl_list})"
+
     inn_query = f"""
         SELECT
             {a['client_uk']} AS client_uk,
@@ -190,7 +263,7 @@ def extract_nodes(
                 ORDER BY {a['start_date']} DESC
             ) AS inn
         FROM {config.TABLE_ACCOUNT}
-        WHERE {a['client_uk']} IN ({client_list})
+        WHERE {inn_where}
           AND {a['client_taxpayer_ccode']} IS NOT NULL
           AND {a['client_taxpayer_ccode']} != ''
     """
@@ -218,23 +291,23 @@ def extract_transaction_edges(
     """
     Extract and aggregate transactions from paymentcounteragent_stran.
 
-    Использует income_flag='N' (исходящие платежи) для определения направления:
-    source = client_uk (плательщик), target = client_contr_uk (получатель).
-
-    Берём только income_flag='N', чтобы избежать двойного учёта
-    (та же транзакция для получателя будет income_flag='Y').
-
-    Groups by (source, target, quarter). Uses rur_amt (рублёвый эквивалент).
+    Использует income_flag='N' (исходящие) для направления: source → target.
+    При large client set использует JOIN через temp view.
     """
-    client_list = ','.join(str(int(c)) for c in client_uks)
     cols = schema.PAYMENT_COUNTERAGENT
-
-    # date_part — INT тип (YYYYMMDD), сравниваем с целыми числами
     start_int = _date_to_int(start_date)
     end_int = _date_to_int(end_date)
-
-    # Для YEAR/QUARTER конвертируем INT → DATE через CAST
     date_expr = f"TO_DATE(CAST({cols['date_part']} AS STRING), 'yyyyMMdd')"
+
+    client_set = set(client_uks)
+    if len(client_set) > _IN_CLAUSE_LIMIT:
+        _register_client_temp_view(spark, client_set, 'tx_clients_tmp')
+        src_filter = f"EXISTS (SELECT 1 FROM tx_clients_tmp t WHERE t.uk = {cols['client_uk']})"
+        tgt_filter = f"EXISTS (SELECT 1 FROM tx_clients_tmp t WHERE t.uk = {cols['client_contr_uk']})"
+    else:
+        cl_list = ','.join(str(int(c)) for c in client_uks)
+        src_filter = f"{cols['client_uk']} IN ({cl_list})"
+        tgt_filter = f"{cols['client_contr_uk']} IN ({cl_list})"
 
     query = f"""
         SELECT
@@ -257,8 +330,8 @@ def extract_transaction_edges(
         WHERE {cols['date_part']} >= {start_int}
           AND {cols['date_part']} <= {end_int}
           AND {cols['income_flag']} = 'N'
-          AND {cols['client_uk']} IN ({client_list})
-          AND {cols['client_contr_uk']} IN ({client_list})
+          AND {src_filter}
+          AND {tgt_filter}
           AND {cols['client_uk']} != {cols['client_contr_uk']}
           AND {cols['rur_amt']} IS NOT NULL
           AND {cols['rur_amt']} > 0
@@ -281,9 +354,7 @@ def extract_transaction_edges(
     except Exception as e:
         if 'partition' in str(e).lower() and 'limit' in str(e).lower():
             logger.warning(f"Partition limit, trying with narrower date range: {e}")
-            return _extract_tx_edges_fallback(
-                spark, client_uks, start_date, end_date
-            )
+            return _extract_tx_edges_fallback(spark, client_uks, start_date, end_date)
         raise
 
 
@@ -315,20 +386,21 @@ def extract_authority_edges(
     client_uks: list,
 ) -> DataFrame:
     """
-    Extract authority/representative relationships.
-
-    Использует clientauthority2clientrb_shist напрямую:
-    - client_u_uk и client_x_uk — две стороны связи
-    - c2clinkrole_uk — роль связи (FK → c2clinkrole_sdim)
-
-    Также JOIN с clientauthority_shist для дополнительных атрибутов.
+    Extract authority/representative relationships from clientauthority2clientrb_shist.
+    client_u_uk ↔ client_x_uk — две стороны связи.
     """
-    client_list = ','.join(str(int(c)) for c in client_uks)
     rb = schema.AUTHORITY_CLIENT_RB
-    ca = schema.CLIENT_AUTHORITY
+    client_set = set(client_uks)
 
-    # Основной источник — clientauthority2clientrb_shist
-    # Содержит прямые связи client_u_uk ↔ client_x_uk
+    if len(client_set) > _IN_CLAUSE_LIMIT:
+        _register_client_temp_view(spark, client_set, 'auth_clients_tmp')
+        filter_u = f"EXISTS (SELECT 1 FROM auth_clients_tmp t WHERE t.uk = r.{rb['client_u_uk']})"
+        filter_x = f"EXISTS (SELECT 1 FROM auth_clients_tmp t WHERE t.uk = r.{rb['client_x_uk']})"
+    else:
+        cl_list = ','.join(str(int(c)) for c in client_uks)
+        filter_u = f"r.{rb['client_u_uk']} IN ({cl_list})"
+        filter_x = f"r.{rb['client_x_uk']} IN ({cl_list})"
+
     query = f"""
         SELECT DISTINCT
             r.{rb['client_u_uk']} AS company_client_uk,
@@ -342,22 +414,16 @@ def extract_authority_edges(
                 THEN true ELSE false
             END AS is_active
         FROM {config.TABLE_AUTHORITY_CLIENT_RB} r
-        WHERE (r.{rb['client_u_uk']} IN ({client_list})
-               OR r.{rb['client_x_uk']} IN ({client_list}))
+        WHERE ({filter_u} OR {filter_x})
           AND r.{rb['client_u_uk']} IS NOT NULL
           AND r.{rb['client_x_uk']} IS NOT NULL
           AND r.{rb['client_u_uk']} != r.{rb['client_x_uk']}
           AND (r.{rb['deleted_flag']} IS NULL OR r.{rb['deleted_flag']} != 'Y')
+          AND {filter_u}
+          AND {filter_x}
     """
 
     df = spark.sql(query)
-
-    # Filter: both ends must be in our client set
-    df = df.filter(
-        F.col('company_client_uk').isin(client_uks)
-        & F.col('representative_client_uk').isin(client_uks)
-    )
-
     logger.info(f"Extracted {df.count()} authority edge records")
     return df
 
@@ -372,14 +438,20 @@ def extract_salary_edges(
 ) -> DataFrame:
     """
     Extract salary project relationships.
-
-    Joins clnt2dealsalary_shist (сотрудник) с dealsalary_sdim (зарплатный проект).
-    Связь: dealsalary_uk → UK (dealsalary_sdim).
-    Работодатель: dealsalary_sdim.CLIENT_UK.
+    clnt2dealsalary_shist (сотрудник) JOIN dealsalary_sdim (работодатель).
     """
-    client_list = ','.join(str(int(c)) for c in client_uks)
     sl = schema.SALARY_DEAL_LINK
     sd = schema.SALARY_DEAL
+    client_set = set(client_uks)
+
+    if len(client_set) > _IN_CLAUSE_LIMIT:
+        _register_client_temp_view(spark, client_set, 'sal_clients_tmp')
+        emp_filter = f"EXISTS (SELECT 1 FROM sal_clients_tmp t WHERE t.uk = d.{sd['client_uk']})"
+        ee_filter  = f"EXISTS (SELECT 1 FROM sal_clients_tmp t WHERE t.uk = l.{sl['client_uk']})"
+    else:
+        cl_list = ','.join(str(int(c)) for c in client_uks)
+        emp_filter = f"d.{sd['client_uk']} IN ({cl_list})"
+        ee_filter  = f"l.{sl['client_uk']} IN ({cl_list})"
 
     query = f"""
         SELECT
@@ -397,22 +469,15 @@ def extract_salary_edges(
         FROM {config.TABLE_SALARY_DEAL_LINK} l
         JOIN {config.TABLE_SALARY_DEAL} d
             ON l.{sl['dealsalary_uk']} = d.{sd['uk']}
-        WHERE (d.{sd['client_uk']} IN ({client_list})
-               OR l.{sl['client_uk']} IN ({client_list}))
+        WHERE ({emp_filter} OR {ee_filter})
+          AND {emp_filter}
+          AND {ee_filter}
           AND (l.{sl['deleted_flag']} IS NULL OR l.{sl['deleted_flag']} != 'Y')
           AND (d.{sd['deleted_flag']} IS NULL OR d.{sd['deleted_flag']} != 'Y')
+          AND d.{sd['client_uk']} != l.{sl['client_uk']}
     """
 
     df = spark.sql(query)
-
-    # Filter: both ends must be in our client set
-    df = df.filter(
-        F.col('employer_client_uk').isin(client_uks)
-        & F.col('employee_client_uk').isin(client_uks)
-    )
-    # Remove self-references
-    df = df.filter(F.col('employer_client_uk') != F.col('employee_client_uk'))
-
     logger.info(f"Extracted {df.count()} salary edge records")
     return df
 
@@ -428,23 +493,22 @@ def extract_seed_neighborhood(
     start_date: str = '2025-01-01',
     end_date: str = '2025-12-31',
     output_dir: str = 'data/',
+    min_tx_count_hop: int = 3,
+    max_neighborhood_size: int = 10_000,
 ) -> dict:
     """
     Extract N-hop neighborhood of a seed company from Hive.
 
-    Steps:
-    1. Expand neighborhood hop by hop via transactions
-    2. Extract node attributes for all discovered clients
-    3. Extract transaction edges between neighborhood clients
-    4. Extract authority relationships
-    5. Extract salary relationships
-    6. Save all to Parquet
-
-    Returns dict of output Parquet file paths.
+    Args:
+        min_tx_count_hop: минимум транзакций с текущим набором для включения
+                          контрагента в следующий хоп. Предотвращает взрыв через хабы.
+        max_neighborhood_size: жёсткий лимит размера окружения. Если превышен —
+                               расширение останавливается с предупреждением.
     """
     logger.info(
-        f"Starting extraction: seed={seed_client_uk}, "
-        f"hops={n_hops}, dates=[{start_date}, {end_date}]"
+        f"Starting extraction: seed={seed_client_uk}, hops={n_hops}, "
+        f"dates=[{start_date}, {end_date}], "
+        f"min_tx_count_hop={min_tx_count_hop}, max_size={max_neighborhood_size}"
     )
 
     # Step 1: Expand neighborhood
@@ -452,9 +516,21 @@ def extract_seed_neighborhood(
     hop_distances = {seed_client_uk: 0}
 
     for hop in range(1, n_hops + 1):
-        logger.info(f"Expanding hop {hop}...")
-        expanded = expand_hop(spark, clients, start_date, end_date)
+        logger.info(f"Expanding hop {hop} (min_tx_count={min_tx_count_hop})...")
+        expanded = expand_hop(
+            spark, clients, start_date, end_date,
+            min_tx_count=min_tx_count_hop,
+        )
         new_clients = expanded - clients
+
+        if len(expanded) > max_neighborhood_size:
+            logger.warning(
+                f"Neighborhood size {len(expanded)} exceeds max_neighborhood_size={max_neighborhood_size}. "
+                f"Stopping at hop {hop}. Consider increasing min_tx_count_hop."
+            )
+            # Включаем только до лимита по числу транзакций (берём что есть на текущем хопе)
+            break
+
         for c in new_clients:
             hop_distances[c] = hop
         clients = expanded
@@ -469,9 +545,7 @@ def extract_seed_neighborhood(
 
     # Step 3: Extract transaction edges
     logger.info("Extracting transaction edges...")
-    tx_edges_df = extract_transaction_edges(
-        spark, client_list, start_date, end_date
-    )
+    tx_edges_df = extract_transaction_edges(spark, client_list, start_date, end_date)
 
     # Step 4: Extract authority edges
     logger.info("Extracting authority edges...")
@@ -482,19 +556,15 @@ def extract_seed_neighborhood(
     salary_edges_df = extract_salary_edges(spark, client_list)
 
     # Step 6: Save to Parquet (локальная ФС через file://)
-    # На MDP Spark по умолчанию пишет на HDFS.
-    # Используем абсолютный путь с file:// для записи на локальную ФС.
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
     spark_dir = f'file://{output_dir}'
 
-    # Пути для Spark write (file://) и для возврата (локальные)
     spark_paths = {
         'nodes': f'{spark_dir}/nodes.parquet',
         'transaction_edges': f'{spark_dir}/transaction_edges.parquet',
         'authority_edges': f'{spark_dir}/authority_edges.parquet',
         'salary_edges': f'{spark_dir}/salary_edges.parquet',
-        'hop_distances': f'{spark_dir}/hop_distances.parquet',
     }
     local_paths = {
         'nodes': os.path.join(output_dir, 'nodes.parquet'),
@@ -510,9 +580,7 @@ def extract_seed_neighborhood(
     auth_edges_df.write.mode('overwrite').parquet(spark_paths['authority_edges'])
     salary_edges_df.write.mode('overwrite').parquet(spark_paths['salary_edges'])
 
-    # Save hop distances via Pandas (small data, avoids spark.createDataFrame
-    # which requires Python workers at /opt/anaconda37/bin/python on MDP)
-    import pandas as pd
+    # hop_distances через Pandas (избегаем spark.createDataFrame + Python worker)
     hop_pdf = pd.DataFrame(
         [(int(k), int(v)) for k, v in hop_distances.items()],
         columns=['client_uk', 'hop_distance'],
