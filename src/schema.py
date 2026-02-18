@@ -11,22 +11,29 @@
 # ==============================================================================
 
 CLIENT = {
-    'uk': 'uk',                             # surrogate key (double)
+    # ВЕРИФИЦИРОВАНО из query plan (2026-02-18):
+    # Первичный ключ — 'uk', НЕ 'client_uk'!
+    'uk': 'uk',                             # surrogate key (double) — НЕ client_uk!
     'client_name': 'client_name',           # полное имя / наименование
     'first_name': 'first_name',             # имя (ФЛ)
+    'last_name': 'last_name',               # фамилия (ФЛ)
     'middle_name': 'middle_name',           # отчество (ФЛ)
     'birth_date': 'birth_date',             # дата рождения / регистрации
     'resident_flag': 'resident_flag',       # резидент Y/N
-    'liquidation_flag': 'liquidation_flag', # ликвидирован Y/N
+    'entrepreneur_flag': 'entrepreneur_flag', # ИП Y/N
     'end_date': 'end_date',                 # дата закрытия записи
-    'clienttype_uk': 'clienttype_uk',       # FK → clienttype_ldim (double)
-    # clientstatus_uk НЕ существует — статус определяется по флагам:
-    'closed_flag': 'closed_flag',           # закрыт
-    'dead_flag': 'dead_flag',               # умер (ФЛ)
-    'deleted_flag': 'deleted_flag',         # удалён
-    'default_flag': 'default_flag',         # дефолт
-    'client_pin': 'client_pin',             # ПИН клиента
+    'clienttype_uk': 'clienttype_uk',       # FK → clienttype_ldim
+    'gender_uk': 'gender_uk',               # FK → gender dict
+    'country_uk': 'country_uk',             # FK → country dict
     'country_ccode': 'country_ccode',       # код страны
+    'client_pin': 'client_pin',             # ПИН клиента
+    'blacklist_flag': 'blacklist_flag',     # в чёрном списке
+    'default_flag': 'default_flag',         # дефолт
+    'deleted_flag': 'deleted_flag',         # удалён
+    'birthplace_name': 'birthplace_name',
+    'r200_flag': 'r200_flag',
+    'as_of_day': 'as_of_day',
+    # liquidation_flag, closed_flag, dead_flag — НЕ существуют в таблице
 }
 
 # ==============================================================================

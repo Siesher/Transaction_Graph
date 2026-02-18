@@ -149,23 +149,27 @@ def extract_nodes(
     c = schema.CLIENT
     ct = schema.CLIENT_TYPE
 
+    # ВАЖНО: первичный ключ client_sdim — 'uk', не 'client_uk'!
+    # liquidation_flag, closed_flag, dead_flag — не существуют, статус = deleted_flag
     query = f"""
         SELECT
             cl.{c['uk']} AS client_uk,
             cl.{c['client_name']} AS client_name,
             cl.{c['first_name']} AS first_name,
+            cl.{c['last_name']} AS last_name,
             cl.{c['middle_name']} AS middle_name,
             cl.{c['birth_date']} AS birth_date,
             cl.{c['resident_flag']} AS resident_flag,
-            cl.{c['liquidation_flag']} AS liquidation_flag,
+            cl.{c['entrepreneur_flag']} AS entrepreneur_flag,
             cl.{c['end_date']} AS end_date,
-            cl.{c['closed_flag']} AS closed_flag,
             cl.{c['deleted_flag']} AS deleted_flag,
+            cl.{c['blacklist_flag']} AS blacklist_flag,
+            cl.{c['default_flag']} AS default_flag,
             ct.{ct['name']} AS client_type_name,
             CASE
                 WHEN cl.{c['deleted_flag']} = 'Y' THEN 'Удалён'
-                WHEN cl.{c['closed_flag']} = 'Y' THEN 'Закрыт'
-                WHEN cl.{c['liquidation_flag']} = 'Y' THEN 'Ликвидирован'
+                WHEN cl.{c['end_date']} IS NOT NULL
+                 AND cl.{c['end_date']} < CURRENT_DATE() THEN 'Закрыт'
                 ELSE 'Активный'
             END AS client_status_name
         FROM {config.TABLE_CLIENT} cl
