@@ -42,8 +42,14 @@ def _date_to_int(date_str: str) -> int:
 
     paymentcounteragent_stran.date_part is partitioned as INT (YYYYMMDD format),
     so date comparisons must use integer literals, not date strings.
+
+    Validates date via datetime.strptime to catch:
+    - Non-existent days (e.g. June 31)
+    - Missing leading zeros (e.g. '2025-6-1' → 20250601)
     """
-    return int(date_str.replace('-', ''))
+    from datetime import datetime
+    dt = datetime.strptime(date_str, '%Y-%m-%d')
+    return int(dt.strftime('%Y%m%d'))
 
 
 def _register_client_temp_view(
