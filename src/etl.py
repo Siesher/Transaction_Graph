@@ -580,12 +580,17 @@ def extract_seed_neighborhood(
     auth_edges_df.write.mode('overwrite').parquet(spark_paths['authority_edges'])
     salary_edges_df.write.mode('overwrite').parquet(spark_paths['salary_edges'])
 
-    # hop_distances через Pandas (избегаем spark.createDataFrame + Python worker)
+    # hop_distances через Pandas (избегаем spark.createDataFrame + Python worker).
+    # Spark мог оставить директорию на этом пути от предыдущего запуска — удаляем.
+    import shutil
+    hop_path = local_paths['hop_distances']
+    if os.path.isdir(hop_path):
+        shutil.rmtree(hop_path)
     hop_pdf = pd.DataFrame(
         [(int(k), int(v)) for k, v in hop_distances.items()],
         columns=['client_uk', 'hop_distance'],
     )
-    hop_pdf.to_parquet(local_paths['hop_distances'], index=False)
+    hop_pdf.to_parquet(hop_path, index=False)
 
     logger.info(f"Extraction complete. Files saved to {output_dir}/")
     return local_paths
