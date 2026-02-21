@@ -65,7 +65,7 @@ def _register_client_temp_view(
     Избегает spark.createDataFrame() (требует Python worker на MDP).
     Возвращает имя зарегистрированного view.
     """
-    pdf = pd.DataFrame({'uk': [float(c) for c in client_uks]})
+    pdf = pd.DataFrame({'uk': [int(c) for c in client_uks]})
     tmp_path = os.path.join(tmp_dir, f'{view_name}.parquet')
     pdf.to_parquet(tmp_path, index=False)
     spark.read.parquet(f'file://{tmp_path}').createOrReplaceTempView(view_name)
@@ -243,7 +243,9 @@ def extract_nodes(
                 WHEN cl.{c['end_date']} IS NOT NULL
                  AND cl.{c['end_date']} < CURRENT_DATE() THEN 'Закрыт'
                 ELSE 'Активный'
-            END AS client_status_name
+            END AS client_status_name,
+            COALESCE(cl.{c['okved_code']}, '{config.DEFAULT_OKVED_CODE}') AS okved_code,
+            COALESCE(cl.{c['region_code']}, '{config.DEFAULT_REGION_CODE}') AS region_code
         FROM {config.TABLE_CLIENT} cl
         LEFT JOIN {config.TABLE_CLIENT_TYPE} ct
             ON cl.{c['clienttype_uk']} = ct.{ct['uk']}

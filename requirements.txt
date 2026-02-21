@@ -1,8 +1,26 @@
-pyspark>=3.0
+# Transaction Graph - Dependencies
+# Install: pip install -r requirements.txt
+
+# Core
 pandas>=1.3
 numpy>=1.20
 networkx>=2.6
+
+# ETL (requires Spark cluster - not needed for local analysis)
+pyspark>=3.0
+
+# Graph Analysis
 python-igraph>=0.10
 leidenalg>=0.9
+
+# Visualization
 pyvis>=0.3
 matplotlib>=3.5
+
+# GNN (optional - other modules work without these)
+torch>=1.13,<3.0
+dgl>=1.1,<2.0
+scikit-learn>=0.24
+
+# Development
+pytest>=7.0

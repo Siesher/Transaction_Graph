@@ -4,6 +4,8 @@
 Все параметры по умолчанию для ETL, графового анализа и визуализации.
 """
 
+import os as _os
+
 # ==============================================================================
 # Hive Database
 # ==============================================================================
@@ -54,6 +56,21 @@ SHELL_WEIGHT_HIGH_BC_LOW_CC = 0.20
 SHELL_WEIGHT_LOW_COUNTERPARTIES = 0.15
 SHELL_WEIGHT_BURSTY = 0.10
 
+# --- Wave 1: Extended Metrics ---
+EDGE_SCORE_W_BASE = 0.30
+EDGE_SCORE_W_BILATERAL = 0.30
+EDGE_SCORE_W_NODE = 0.20
+EDGE_SCORE_W_STABILITY = 0.20
+HUB_CAP_MIN = 20
+HUB_CAP_MAX = 50
+TOP_K_COUNTERPARTIES = 5
+
+# --- Wave 2: Industry & Behavioral ---
+DEFAULT_OKVED_CODE = "00"
+DEFAULT_REGION_CODE = "00"
+BEHAVIORAL_K_RANGE = (3, 10)
+LOOKALIKE_TOP_DECILE = 0.1
+
 # ==============================================================================
 # Visualization
 # ==============================================================================
@@ -102,8 +119,6 @@ DEFAULT_NODE_TYPE = 'company'
 # Для MVP используем локальную ФС через file:// префикс,
 # т.к. подграф seed-компании небольшой (до ~10K узлов).
 # Pickle, HTML и Pandas-операции работают только с локальной ФС.
-
-import os as _os
 
 # Абсолютный путь к корню проекта (определяется от config.py → src/ → project root)
 PROJECT_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))

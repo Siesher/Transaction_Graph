@@ -51,6 +51,15 @@ def generate_synthetic_data(
     rng = np.random.RandomState(seed)
     random.seed(seed)
 
+    # OKVED and region code pools (per research.md Decision 3)
+    okved_codes = [
+        '01', '10', '14', '20', '23', '25', '41', '43', '45', '46',
+        '47', '49', '52', '62', '64', '68', '69', '70', '71', '86',
+    ]
+    region_codes = [
+        '77', '78', '50', '23', '16', '54', '66', '63', '74', '52',
+    ]
+
     # =================================================================
     # Generate Nodes
     # =================================================================
@@ -83,6 +92,11 @@ def generate_synthetic_data(
     for i, uk in enumerate(company_uks):
         name = company_names[i] if i < len(company_names) else f'ООО "Компания-{i}"'
         hop = 0 if uk == seed_uk else (1 if i < 10 else 2)
+
+        # Last company (index 29, "ООО Прочие") is marked as deleted
+        deleted = 'Y' if i == n_companies - 1 else 'N'
+        status = 'Ликвидирован' if deleted == 'Y' else 'Активный'
+
         nodes_records.append({
             'client_uk': uk,
             'client_name': name,
@@ -90,14 +104,22 @@ def generate_synthetic_data(
             'middle_name': None,
             'birth_date': None,
             'resident_flag': 'Y',
-            'liquidation_flag': 'N',
+            'deleted_flag': deleted,
             'end_date': '5999-12-31',
             'client_type_name': 'Юридическое лицо',
-            'client_status_name': 'Активный',
+            'client_status_name': status,
             'inn': f'{7700000000 + i}',
+            'okved_code': random.choice(okved_codes),
+            'region_code': random.choice(region_codes),
         })
 
     for i, uk in enumerate(individual_uks):
+        # Last individual has end_date in the past (closed/deregistered)
+        if i == n_individuals - 1:
+            end_dt = '2020-01-01'
+        else:
+            end_dt = '5999-12-31'
+
         nodes_records.append({
             'client_uk': uk,
             'client_name': f'Иванов-{i}',
@@ -105,11 +127,13 @@ def generate_synthetic_data(
             'middle_name': random.choice(['Иванович', 'Петрович', 'Сергеевич', 'Ивановна', None]),
             'birth_date': f'{rng.randint(1960, 2000)}-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}',
             'resident_flag': 'Y',
-            'liquidation_flag': 'N',
-            'end_date': '5999-12-31',
+            'deleted_flag': 'N',
+            'end_date': end_dt,
             'client_type_name': 'Физическое лицо',
             'client_status_name': 'Активный',
             'inn': None,
+            'okved_code': config.DEFAULT_OKVED_CODE,
+            'region_code': config.DEFAULT_REGION_CODE,
         })
 
     for i, uk in enumerate(ip_uks):
@@ -120,11 +144,13 @@ def generate_synthetic_data(
             'middle_name': None,
             'birth_date': f'{rng.randint(1970, 1995)}-01-01',
             'resident_flag': 'Y',
-            'liquidation_flag': 'N',
+            'deleted_flag': 'N',
             'end_date': '5999-12-31',
             'client_type_name': 'Индивидуальный предприниматель',
             'client_status_name': 'Активный',
             'inn': f'{7700100000 + i}',
+            'okved_code': random.choice(okved_codes),
+            'region_code': random.choice(region_codes),
         })
 
     nodes_df = pd.DataFrame(nodes_records)

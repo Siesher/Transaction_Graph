@@ -2,13 +2,16 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+dist/
 .venv/
 venv/
+.pytest_cache/
 
 # Data (generated at runtime)
 data/*.parquet
 data/*.pickle
 data/*.html
+data/*.pt
 !data/.gitkeep
 
 # IDE

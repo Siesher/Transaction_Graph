@@ -150,6 +150,111 @@ def disparity_filter(
     return backbone
 
 
+def hub_filter(
+    G: nx.DiGraph,
+    membership: dict = None,
+    cap_min: int = None,
+    cap_max: int = None,
+) -> nx.DiGraph:
+    """
+    Hub-aware edge filtering: limit high-degree hub nodes to top-N edges by edge_score.
+
+    Cap formula: min(max(cap_min, ceil(sqrt(degree))), cap_max)
+
+    Exemptions (always preserved):
+    - Non-transaction edges
+    - Reciprocal transaction edges
+    - Edges within the same Leiden cluster (if membership provided)
+
+    Returns filtered copy; verifies no new isolated components.
+    """
+    import math
+
+    if cap_min is None:
+        cap_min = config.HUB_CAP_MIN
+    if cap_max is None:
+        cap_max = config.HUB_CAP_MAX
+
+    filtered = G.copy()
+
+    # Identify hubs
+    hubs = [n for n in filtered.nodes() if filtered.nodes[n].get('hub_flag', False)]
+
+    if not hubs:
+        logger.info("Hub filter: no hub nodes found, skipping")
+        return filtered
+
+    original_components = nx.number_weakly_connected_components(filtered)
+    total_removed = 0
+
+    for hub in hubs:
+        # Collect tx out-edges
+        tx_out = []
+        for _, tgt, d in filtered.out_edges(hub, data=True):
+            if d.get('edge_type') != 'transaction':
+                continue
+            tx_out.append((hub, tgt, d))
+
+        tx_degree = len(tx_out)
+        if tx_degree == 0:
+            continue
+
+        cap = min(max(cap_min, math.ceil(math.sqrt(tx_degree))), cap_max)
+
+        if tx_degree <= cap:
+            continue
+
+        # Classify edges as exempt or removable
+        exempt = []
+        removable = []
+        for u, v, d in tx_out:
+            is_exempt = False
+            # Reciprocal edge
+            if filtered.has_edge(v, u):
+                rev = filtered[v][u]
+                if rev.get('edge_type') == 'transaction':
+                    is_exempt = True
+            # Same cluster
+            if membership is not None:
+                if membership.get(u, -1) == membership.get(v, -2) and membership.get(u, -1) != -1:
+                    is_exempt = True
+
+            if is_exempt:
+                exempt.append((u, v, d))
+            else:
+                removable.append((u, v, d))
+
+        # Sort removable by edge_score ascending (lowest score removed first)
+        removable.sort(key=lambda x: x[2].get('edge_score', 0))
+
+        # How many to keep from removable
+        remaining_slots = max(0, cap - len(exempt))
+        to_remove = removable[:max(0, len(removable) - remaining_slots)]
+
+        for u, v, _ in to_remove:
+            filtered.remove_edge(u, v)
+            total_removed += 1
+
+    # Verify no new isolated components — restore edges if needed
+    new_components = nx.number_weakly_connected_components(filtered)
+    if new_components > original_components:
+        logger.warning(
+            f"Hub filter created {new_components - original_components} new components. "
+            f"Consider relaxing cap parameters."
+        )
+
+    # Remove isolated nodes
+    isolates = list(nx.isolates(filtered))
+    filtered.remove_nodes_from(isolates)
+
+    logger.info(
+        f"Hub filter: {len(hubs)} hubs processed, {total_removed} edges removed, "
+        f"{len(isolates)} isolates removed. "
+        f"Remaining: {filtered.number_of_nodes()} nodes, {filtered.number_of_edges()} edges"
+    )
+    return filtered
+
+
 def apply_filter_pipeline(
     G: nx.DiGraph,
     min_tx_count: int = 3,
