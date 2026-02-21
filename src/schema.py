@@ -33,9 +33,7 @@ CLIENT = {
     'birthplace_name': 'birthplace_name',
     'r200_flag': 'r200_flag',
     'as_of_day': 'as_of_day',
-    # OKVED / Region — placeholder names (verify via DESCRIBE TABLE on MDP)
-    'okved_code': 'okved_code',           # ОКВЭД код (2 символа)
-    'region_code': 'region_code',         # код региона регистрации
+    # okved_code / region_code — NOT in table (verified 2026-02-21, schema check)
     # liquidation_flag, closed_flag, dead_flag — НЕ существуют в таблице
 }
 

@@ -244,8 +244,8 @@ def extract_nodes(
                  AND cl.{c['end_date']} < CURRENT_DATE() THEN 'Закрыт'
                 ELSE 'Активный'
             END AS client_status_name,
-            COALESCE(cl.{c['okved_code']}, '{config.DEFAULT_OKVED_CODE}') AS okved_code,
-            COALESCE(cl.{c['region_code']}, '{config.DEFAULT_REGION_CODE}') AS region_code
+            '{config.DEFAULT_OKVED_CODE}' AS okved_code,
+            '{config.DEFAULT_REGION_CODE}' AS region_code
         FROM {config.TABLE_CLIENT} cl
         LEFT JOIN {config.TABLE_CLIENT_TYPE} ct
             ON cl.{c['clienttype_uk']} = ct.{ct['uk']}
