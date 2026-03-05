@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Data (generated at runtime)
+data/*.parquet
+data/*.pickle
+data/*.html
+data/*.pt
+!data/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/

@@ -1,0 +1,568 @@
+======================================================================
+DESCRIBE s_dmrb.client_sdim
+======================================================================
+Колонок: 65
+col_name data_type comment
+0 as_of_day string Data postuplenija zapisi v hranilische
+1 birth_date string Data rozhenija
+2 birthplace_name string Mesto rozhdenija
+3 blacklist_flag string Priznak prisutstvija v BLACK-liste
+4 client_name string Naimenovanie (JuL)
+... ... ... ...
+60 repriskess_flag string Priznak vkljuchenija klienta v ChS po SEB
+61 repriskcmpl_flag string Priznak vkljuchenija klienta v ChS po komplajensu
+62 bank_bic_ncode double Bankovskij identifikatsionnyj kod (BIK)
+63 ogrn_date string Data vydachi OGRN klienta
+64 taxpayer_uk double None
+65 rows × 3 columns
+[05.03.2026 17:51] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.clientinfo_shist
+======================================================================
+Колонок: 34
+col_name data_type comment
+0 xk double Unikalnyj identifikator zapisi
+1 client_uk double Kontragent
+2 maritalstatus_uk double Semejnoe polozhenie
+3 education_uk double Obrazovanie
+4 loanapplscope_uk double Sfera dejatelnosti organizatsii
+5 income_uk double Dohod po osnovnomu mestu raboty
+6 user_uk double Polzovatel
+7 effective_from string Data nachala dejstvija
+8 effective_to string Data okonchanija dejstvija
+9 deleted_flag string Priznak udalenija zapisi
+10 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+11 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+12 as_of_day string Data i vremja postuplenija zapisi v hranilische
+13 emix double Kod sochetanija ishodnyh tablits
+14 fatcaentitycls_desc string Opisanie FATCA-status
+15 client_rel_date string Data nachala otnoshenij s klientom
+16 currency_authcapital_uk double Valjuta ustavnogo kapitala
+17 residency_usa_flag string Nalogovoj rezident SShA
+18 giin_ccode string Gloablnyj identifikatsionnyj nomer posrednika
+19 tin_ccode string Amerikanskij inn/TIN
+20 okopf_uk double Ssylka na spravochnik obscherossijskogo klassi...
+21 beneficialownergrounds_desc string Osnovanie dlja benefetsiarnogo vladeltsa
+22 bankruptcycode_date string Data vvoda priznaka bankrotstva
+23 actual_date string Data aktualizatsii
+24 accreditaion_date string Srok akkreditatsii
+25 liquidationtype_uk double Ssylka na spravochnik likvidatsii jur. litsa
+26 license_flag string Nalichie litsenzij
+27 clientcounterparty_flag string Flag javljaetsja li klientom ili kontragentom
+28 clientchange_date string Data perehoda v klienty
+29 counterpartychange_date string Data perehoda v kontragenty
+30 registry_authcapital_desc string Zaregestrirovannyj Ustavnoj Kapital ishodnoe z...
+31 registry_authcapital_amt double Zaregestrirovannyj Ustavnoj Kapital chislovoe ...
+32 paid_authcapital_desc string Oplachennyj Ustavnoj Kapital ishodnoe znachenie
+33 paid_authcapital_amt double Oplachennyj Ustavnoj Kapital chislovoe znachenie
+[05.03.2026 17:52] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.dmoutdmrb_mdm_redclients_shist_dmout
+======================================================================
+Колонок: 25
+col_name data_type comment
+0 client_lp_uk double UK klienta JuL
+1 taxpayer_lp_ccode string INN klienta JuL
+2 client_np_uk double UK klienta FL
+3 taxpayer_np_ccode string INN klienta FL
+4 effective_from string Biznes-data nachala aktualnosti zapisi
+5 client_lp_name string Nazvanie klienta JuL
+6 client_lp_pin string EQ PIN klienta JuL
+7 block_lp_ccode string Blok klienta JuL
+8 reg_city_name string Nzvanie goroda
+9 client_np_name string FIO klienta FL
+10 client_np_pin string EQ PIN klienta fL
+11 clientsegment_name string Segment klienta FL
+12 ie_flag string Flag IP
+13 head_flag string Flag rukovoditelja
+14 founder_flag string Flag uchereditelja
+15 sparkcompany_src_ccode string Identifikator kompanii v SPARK
+16 effective_to string Biznes-data okonchanija aktualnosti zapisi
+17 sparkokved_ccode string Kod OKVED po SPARK
+18 kpp_ccode string KPP
+19 ogrn_ccode string OGRN
+20 statusfu_ccode string Status FJu
+21 as_of_day string Data postuplenija ili obnovlenija zapisi v hra...
+22 deleted_flag string Priznak togo, chto zapis byla udalena
+23 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+24 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+[05.03.2026 17:52] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.clientsegment_sdim
+======================================================================
+Колонок: 13
+col_name data_type comment
+0 START_DATE string None
+1 NAME string None
+2 CCODE string None
+3 END_DATE string None
+4 DELETED_FLAG string None
+5 DEFAULT_FLAG string None
+6 EMIX double None
+7 JOB_UPDATE double None
+8 JOB_INSERT double None
+9 AS_OF_DAY string None
+10 UK double None
+11 PARENT_UK double None
+12 SEGMENTTYPE_UK double None
+[05.03.2026 17:52] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.dmrb_clientgeneralsegment_shist
+======================================================================
+Колонок: 12
+col_name data_type comment
+0 client_pin string Identifikator klienta PIN
+1 client_uk double Identifikator klienta UK
+2 srvpackagesegment_ccode string Znachenie segmenta po urovnju obsluzhivanija (...
+3 agesegment_ccode string Znachenie segmenta po vozrastu
+4 effective_from string Data nachala dejstvija segmenta
+5 effective_to string Data okonchanija dejstvija segmenta
+6 deleted_flag string Flag udalennoj zapisi
+7 job_insert double Job
+8 job_update double Job
+9 as_of_day string Vremja obnovlenija zapisi
+10 srvpackagelightsegment_ccode string Znachenie segmenta po urovnju obsluzhivanija (...
+11 client_active_flag string Znachenie segmenta po aktivnosti
+[05.03.2026 17:52] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.client2category_shist
+======================================================================
+Колонок: 10
+col_name data_type comment
+0 as_of_day string Data postuplenija ili obnovlenija zapisi v hra...
+1 client_pin string PIN kontragenta
+2 client_uk double Kontragent
+3 clientcategory_uk double Kategorija kontragenta
+4 clientprops_uk double Identifikator metriki/svojstva
+5 deleted_flag string Priznak togo, chto zapis byla udalena
+6 effective_from string Biznes-data nachala aktualnosti zapisi
+7 effective_to string Biznes-data okonchanija aktualnosti zapisi
+8 job_insert double Identifikator JOBa, kotoryj vstavil dannuju z...
+9 job_update double Identifikator JOBa, kotoryj obnovil dannuju z...
+[05.03.2026 17:52] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.client2smartsplace_shist
+======================================================================
+Колонок: 15
+col_name data_type comment
+0 xk double Unikalnyj identifikator zapisi
+1 client_uk double Kontragent
+2 client_pin string PIN EQ kontragenta
+3 salesplace_uk double ID bankovskogo ofisa kontragenta
+4 addrref_uk double Unikalnyj identifikator klassifitsirovannogo a...
+5 addrref_city_name string Gorod kontragenta
+6 addrref_region_uk double ID regiona kontragenta
+7 effective_from string Biznes-data nachala aktualnosti zapisi
+8 effective_to string Biznes-data okonchanija aktualnosti zapisi
+9 as_of_day string Data postuplenija ili obnovlenija zapisi v hra...
+10 deleted_flag string Priznak togo, chto zapis byla udalena
+11 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+12 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+13 emix double Kod sochetanija ishodnyh tablits
+14 addrref_drbcity_name string Gorod Direktora po Roznichnomu Biznesu
+[05.03.2026 17:52] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.client2smartsplace_stran
+======================================================================
+Колонок: 18
+col_name data_type comment
+0 xk double Unikalnyj identifikator zapisi
+1 client_uk double Kontragent
+2 client_pin string PIN EQ kontragenta
+3 salesplace_uk double ID bankovskogo ofisa kontragenta
+4 addrref_uk double Unikalnyj identifikator klassifitsirovannogo a...
+5 addrref_city_name string Gorod kontragenta
+6 addrref_region_uk double ID regiona kontragenta
+7 effective_from string Biznes-data nachala aktualnosti zapisi
+8 effective_to string Biznes-data okonchanija aktualnosti zapisi
+9 value_day string Biznes-data postuplenija ili obnovlenija zapis...
+10 as_of_day string Data postuplenija ili obnovlenija zapisi v hra...
+11 deleted_flag string Priznak togo, chto zapis byla udalena
+12 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+13 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+14 emix double Kod sochetanija ishodnyh tablits
+15 addrref_drbcity_name string Gorod Direktora po Roznichnomu Biznesu
+16 date_part int None
+19 date_part int None
+[05.03.2026 17:53] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.clntdivisionregion_shist
+======================================================================
+Колонок: 11
+                                                                                
+col_name data_type comment
+0 xk double unikalnyj identifikator zapisi
+1 division_uk double klientskoe podrazdelenie
+2 addrref_region_uk double region
+3 clntdiv2regtype_uk double tip svjazi kp s regionom
+4 effective_from string biznes-data nachala aktualnosti zapisi
+5 effective_to string biznes-data okonchanija aktualnosti zapisi
+6 module_uk double sistema-istochnik
+7 as_of_day string data aktualizatsii dwh
+8 deleted_flag string priznak udalenija zapisi
+9 job_insert double identifikator job`a, kotoryj vstavil dannuju z...
+10 job_update double identifikator job`a, kotoryj obnovil dannuju z...
+[05.03.2026 17:53] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.clientturnover_sagg
+======================================================================
+Колонок: 82
+col_name data_type comment
+0 xk double Unikalnyj identifikator zapisi
+1 account_uk double Litsevoj schet, dlja kotorogo opredeljajutsja ...
+2 value_day string Otchetnaja data
+3 client_uk double Kontragent, k kotoromu otnositsja schet
+4 currency_uk double Valjuta scheta
+... ... ... ...
+77 debet_turn_cm_cnt double Kolichestvo oborotov po debetu za tekuschij me...
+78 debet_turn_30_cnt double Kolichestvo oborotov po debetu za tekuschij me...
+79 debet_turn_7_cnt double Kolichestvo oborotov po debetu za period v 7 dnej
+80 date_part int None
+83 date_part int None
+[05.03.2026 17:53] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.clientturnover_sagg_parquet
+======================================================================
+Колонок: 82
+col_name data_type comment
+0 xk double None
+1 account_uk double None
+2 value_day string partitioned by day (yyyyMMdd)
+3 client_uk double None
+4 currency_uk double None
+... ... ... ...
+77 debet_turn_cm_cnt double None
+78 debet_turn_30_cnt double None
+79 debet_turn_7_cnt double None
+80 date_part int None
+83 date_part int None
+[05.03.2026 17:53] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.sparkfinindicator_sstat
+======================================================================
+Колонок: 16
+col_name data_type comment
+0 sparkcompany_uk double Id kompanii SPARK
+1 accountingperiod_name string Naimenovanie otchetnogo perioda
+2 revenue_rur_amt double Summa godovoj vyruchki
+3 adjrevenue_rur_amt double Summa privedennoj k godu vyruchki
+4 lborrowedfunds_rur_amt double Summa dolgosrochnyh zaemnyh sredstv
+5 sborrowedfunds_rur_amt double Summa kratkosrochnyh zaemnyh sredstv
+6 paymentindex_ccode string Kod indeksa platezhnoj distsipliny
+7 duediligense_ccode string Kod indeksa dolzhnoj osmotritelnosti
+8 failurescore_ccode string Kod indeksa finansovogo riska
+9 value_day string Otchetnaja data
+10 deleted_flag string Priznak togo, chto zapis byla udalena
+11 job_insert double Identifikator zagruzki (unikalnyj nomer zagruzki)
+12 as_of_day string Data/vremja aktualizatsii DWH
+13 job_update double Identifikator zagruzki (unikalnyj nomer zagruzki)
+14 month_part int None
+17 month_part int None
+[05.03.2026 17:53] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.cbclient_month_astat
+======================================================================
+Колонок: 73
+col_name data_type comment
+0 adjustment_ncode double ID istochnika korrektirovok
+1 adjustment_uk double ID Korrektirovki
+2 as_of_day string Data postuplenija ili obnovlenija zapisi v hra...
+3 block_ccode string Kod biznes-bloka
+4 block_uk double Kljuch bloka
+... ... ... ...
+68 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+69 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+70 emix double Kod sochetanija ishodnyh tablits
+71 month_part int None
+74 month_part int None
+[05.03.2026 17:54] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.clientbalance_sagg
+======================================================================
+Колонок: 56
+                                                                                
+col_name data_type comment
+0 xk double Unikalnyj identifikator zapisi
+1 account_uk double Litsevoj schet, dlja kotorogo opredeljajutsja ...
+2 value_day string Otchetnaja data
+3 accounteqtype_uk double Tip scheta iz spravochnika EQ
+4 adjreporttype_uk double Tip otchetnosti (ezhenedelnaja, ezhemesjachnaja)
+5 balance_cur_amt double Ostatok po schetu na konets perioda (CUR)
+6 balance_cur_amt_30_avg double Srednij ostatok za period v 30 dnej (CUR)
+7 balance_cur_amt_30_max double Maksimalnyj ostatok za period v 30 dnej (CUR)
+8 balance_cur_amt_30_min double Minimalnyj ostatok za period v 30 dnej (CUR)
+9 balance_cur_amt_7_avg double Srednij ostatok za period v 7 dnej (CUR)
+10 balance_cur_amt_7_max double Maksimalnyj ostatok za period v 7 dnej (CUR)
+11 balance_cur_amt_7_min double Minimalnyj ostatok za period v 7 dnej (CUR)
+12 balance_cur_amt_cm_avg double Srednij ostatok za tekuschij mesjats (s pervog...
+13 balance_cur_amt_cm_max double Maksimalnyj ostatok za tekuschij mesjats (s pe...
+14 balance_cur_amt_cm_min double Minimalnyj ostatok za tekuschij mesjats (s per...
+15 balance_rur_amt double Ostatok po schetu na konets perioda (RUR)
+16 balance_rur_amt_30_avg double Srednij ostatok za period v 30 dnej (RUR)
+17 balance_rur_amt_30_max double Maksimalnyj ostatok za period v 30 dnej(RUR)
+18 balance_rur_amt_30_min double Minimalnyj ostatok za period v 30 dnej (RUR)
+19 balance_rur_amt_7_avg double Srednij ostatok za period v 7 dnej (RUR)
+20 balance_rur_amt_7_max double Maksimalnyj ostatok za period v 7 dnej (RUR)
+21 balance_rur_amt_7_min double Minimalnyj ostatok za period v 7 dnej (RUR)
+22 balance_rur_amt_cm_avg double Srednij ostatok za tekuschij mesjats (s pervog...
+23 balance_rur_amt_cm_max double Maksimalnyj ostatok za tekuschij mesjats (s pe...
+24 balance_rur_amt_cm_min double Minimalnyj ostatok za tekuschij mesjats (s per...
+25 balance_usd_amt double Ostatok po schetu na konets perioda (USD
+[05.03.2026 17:54] Максим Сухацкий: 26 balance_usd_amt_30_avg double Srednij ostatok za period v 30 dnej (USD)
+27 balance_usd_amt_30_max double Maksimalnyj ostatok za period v 30 dnej(USD)
+28 balance_usd_amt_30_min double Minimalnyj ostatok za period v 30 dnej (USD)
+29 balance_usd_amt_7_avg double Srednij ostatok za period v 7 dnej (USD)
+30 balance_usd_amt_7_max double Maksimalnyj ostatok za period v 7 dnej(USD)
+31 balance_usd_amt_7_min double Minimalnyj ostatok za period v 7 dnej (USD)
+32 balance_usd_amt_cm_avg double Srednij ostatok za tekuschij mesjats (s pervog...
+33 balance_usd_amt_cm_max double Maksimalnyj ostatok za tekuschij mesjats (s pe...
+34 balance_usd_amt_cm_min double Minimalnyj ostatok za tekuschij mesjats (s per...
+35 client_uk double Kontragent, k kotoromu otnositsja schet
+36 currency_uk double Valjuta scheta
+37 gl2account_uk double Balansovyj schet 2-go porjadka
+38 start_date string Data otkrytija scheta
+39 end_date string Data zakrytija scheta
+40 day_cnt double Kolichestvo dnej dejstvija scheta v periode
+41 as_of_day string Data postuplenija ili obnovlenija zapisi v hra...
+42 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+43 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+44 emix double Kod sochetanija ishodnyh tablits
+45 balance_cur_amt_30_day_avg double Srednednevnoj ostatok za period v 30 dnej (CUR)
+46 balance_cur_amt_7_day_avg double Srednednevnoj ostatok za period v 7 dnej (CUR)
+47 balance_cur_amt_cm_day_avg double Srednednevnoj ostatok za tekuschij mes¤ts (CUR)
+48 balance_rur_amt_30_day_avg double Srednednevnoj ostatok za period v 30 dnej (RUR)
+49 balance_rur_amt_7_day_avg double Srednednevnoj ostatok za period v 7 dnej (RUR)
+50 balance_rur_amt_cm_day_avg double Srednednevnoj ostatok za tekuschij mes¤ts (RUR)
+51 balance_usd_amt_30_day_avg double Srednednevnoj ostatok za period v 30 dnej (USD)
+52 balance_usd_amt_7_day_avg double Srednednevnoj ostatok za period v 7 dnej (USD)
+53 balance_usd_amt_cm_day_avg double Srednednevnoj ostatok za tekuschij mes¤ts (USD)
+54 date_part int None
+57 date_part int None
+[05.03.2026 17:54] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.dmoutdmrb_probe_clientscore2probe_stat_dmout
+======================================================================
+Колонок: 82
+col_name data_type comment
+0 value_day string Otchetnaja data
+1 job_insert double Identifikator zadachi, vstavivshej zapis
+2 as_of_day string Data zagruzki dannyh
+3 client_uk double Kontragent
+4 load_id double ID vygruzki
+... ... ... ...
+77 docprovide_flag string None
+78 start_date_payer string None
+79 budget_flag string None
+80 month_part int None
+83 month_part int None
+82 rows × 3 columns
+[05.03.2026 17:55] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.dmoutdmrb_probe_clientscore2probe_sagg_dmout
+======================================================================
+Колонок: 45
+                                                                                
+col_name data_type comment
+0 value_date string Otchetnaja data
+1 client_uk double Kontragent
+2 client_pin string ID klienta EQ
+3 balance_invest_amt_rur double Summarnyj balans klienta po vsem invest.produktam
+4 rko_flag string Flag vladeltsa RKO
+5 income_rur_amt double Dohod klienta ot vseh RKO
+6 ocrm_decline_lm_rlnd double Kolichestvo otkaznyh otklikov po predlozheniju...
+7 ocrm_decline_lm_pil double Kolichestvo otkaznyh otklikov po predlozheniju...
+8 ocrm_decline_lm_cc double Kolichestvo otkaznyh otklikov po predlozheniju CC
+9 ocrm_accept_lm_rlnd double Kolichestvo polozhitelnyh otklikov po predlozh...
+10 ocrm_accept_lm_pil double Kolichestvo polozhitelnyh otklikov po predlozh...
+11 ocrm_accept_lm_cc double Kolichestvo polozhitelnyh otklikov po predlozh...
+12 ip_flag string Flag, chto fiz. litso javljaetsja IP
+13 decision_maker_flag string Flag, chto fiz. litso javljaetsja LPR v jur. l...
+14 decision_maker_company_inn double INN JuL, v kotorom klient javljaetsja LPR
+15 car_holder_flag string Flag nalichija u klienta Avto
+16 grade_name string Grejd sotrudnika
+17 fired_date string Data predpolagaemogo uvolnenija
+18 bi_score_01 double Skoringovyj ball
+19 bi_score_02 double Skoringovyj ball
+20 bi_score_03 double Skoringovyj ball
+21 bi_score_04 double Skoringovyj ball
+22 bi_score_05 double Skoringovyj ball
+23 bi_score_06 double Skoringovyj ball
+24 bi_score_07 double Skoringovyj ball
+25 bi_score_08 double Skoringovyj ball
+[05.03.2026 17:55] Максим Сухацкий: 26 bi_score_09 double Skoringovyj ball
+27 bi_score_10 double Skoringovyj ball
+28 bi_score_11 double Skoringovyj ball
+29 bi_score_12 double Skoringovyj ball
+30 load_id double ID vygruzki
+31 job_insert double Identifikator zadachi, vstavivshej zapis
+32 as_of_day string Data zagruzki dannyh
+33 bi_score_13 double Rezervnoe pole dlja skora iz BI
+34 bi_score_14 double Rezervnoe pole dlja skora iz BI
+35 bi_score_15 double Rezervnoe pole dlja skora iz BI
+36 bi_score_16 double Rezervnoe pole dlja skora iz BI
+37 bi_score_17 double Rezervnoe pole dlja skora iz BI
+38 bi_score_18 double Rezervnoe pole dlja skora iz BI
+39 bi_score_19 double Rezervnoe pole dlja skora iz BI
+40 bi_score_20 double Rezervnoe pole dlja skora iz BI
+41 bi_string_1 string Rezervnoe pole dlja skora iz BI
+42 azon_payer_res double AZON. Osnovnoj platelschik: Itogovyj pokazatel
+43 month_part int None
+46 month_part int None
+[05.03.2026 17:55] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.dmoutdmrb_probe_clientscore2probe_coll_dmout
+======================================================================
+Колонок: 25
+col_name data_type comment
+0 value_day string Data raspredelenija
+1 load_id double ID vygruzki
+2 job_insert double None
+3 as_of_day string None
+4 pin string PIN klienta
+5 model_group string Regionalnaja prinadlezhnost
+6 cell_name string Kommentarij k vyhodu iz modeli
+7 decision string Naznachennaja strategija
+8 scored_num double Rezultat ranzhirovanija
+9 block_flg double Flag prinadlezhnosti k biznes-bloku
+10 second_ro_flg double Flag nalichija dogovorov v strategii SEB
+11 second_hc2_flg double Flag nalichija dogovorov v strategii HC2
+12 main_phone_flg double Flag nalichija kachestvennyh telefonov
+13 total_debt decimal(38,19) Obschaja summa dolga dolzhnika
+14 score decimal(38,19) Skoringovyj ball dolzhnika
+15 collection_score_1 decimal(38,19) Rezervnoe pole
+16 collection_score_7 decimal(38,19) Rezervnoe pole
+17 collection_score_8 decimal(38,19) Rezervnoe pole
+18 collection_score_9 decimal(38,19) Rezervnoe pole
+19 collection_score_10 decimal(38,19) Rezervnoe pole
+20 collection_string_4 string Rezervnoe pole
+21 collection_string_5 string Rezervnoe pole
+22 collection_value_2 decimal(38,19) Rezervnoe pole
+23 collection_value_3 decimal(38,19) Rezervnoe pole
+24 collection_value_4 decimal(38,19) Rezervnoe pole
+[05.03.2026 17:55] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.bureaureqclient_sstat
+======================================================================
+Колонок: 61
+                                                                                
+col_name data_type comment
+0 value_day string Otchetnaja data
+1 tk string Pervichnyj kljuch
+2 action_time string Data i vremja poluchenija informatsii iz BKI
+3 bureaureq_uk double Zapros v BKI, v ramkah kotorogo byl poluchen o...
+4 bureau_uk double BKI, po kotoromu predostavleny dannye
+... ... ... ...
+56 job_insert double Identifikator JOB’a, kotoryj vstavil dannuju ...
+57 job_update double Identifikator JOB’a, kotoryj obnovil dannuju ...
+58 client_pin string Kontragent, po kotoromu vypolnjaetsja zapros v...
+59 date_part int None
+62 date_part int None
+[05.03.2026 17:55] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.deal_sdim
+======================================================================
+Колонок: 18
+col_name data_type comment
+0 AS_OF_DAY string None
+1 DELETED_FLAG string None
+2 DEFAULT_FLAG string None
+3 DEAL_BACK_REF string None
+4 DEAL_FRONT_REF string None
+5 DEAL_REF string None
+6 DEALTABLE_UK double None
+7 DEALTYPE_UK double None
+8 EMIX double None
+9 JOB_INSERT double None
+10 JOB_UPDATE double None
+11 MODULE_BACK_UK double None
+12 MODULE_FRONT_UK double None
+13 PRODUCT_UK double None
+14 PROFITCENTER_UK double None
+15 SALESPLACE_SALE_UK double None
+16 SALESPLACE_SERVICE_UK double None
+17 UK double None
+[05.03.2026 17:56] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.bmbpenetrproduct_stat
+======================================================================
+Колонок: 55
+col_name data_type comment
+0 account_manager_uk double None
+1 account_number string None
+2 account_start_date string None
+3 account_uk double None
+4 as_of_day string None
+5 block_uk double None
+6 cardnum_ccode string None
+7 card_uk double None
+8 channel_uk double None
+9 clientaa_pin_eq string None
+10 clientcategory_uk double None
+11 clientgroup_uk double None
+12 client_aa_uk double None
+13 client_taxpayer_ncode double None
+14 client_uk double None
+15 currency_uk double None
+16 cur_amt double None
+17 deal_ref string None
+18 deal_start_date string None
+19 deal_uk double None
+20 divisioncity_name string None
+21 divisionclient_name string None
+22 divisionclient_ncode double None
+23 divisiondirector_name string None
+24 division_client_uk double None
+25 docformpaystandorder_uk double None
+26 docform_ref string None
+27 effective_from string None
+28 effective_to string None
+29 exchange_rate double None
+[05.03.2026 17:56] Максим Сухацкий: 30 extsrvservice_ccode string None
+31 extsrvservice_uk double None
+32 p4textparam_ccode string None
+33 p4textparam_uk double None
+34 productgroup_uk double None
+35 producttypemass_ccode string None
+36 producttypemass_name string None
+37 product_uk double None
+38 profitcenter_uk double None
+39 rur_amt double None
+40 salesplace_uk double None
+41 tariffcollection_uk double None
+42 tk string None
+43 trn_source_no string None
+44 user_channel string None
+45 user_email string None
+46 user_login string None
+47 user_name string None
+48 value_day string None
+49 xk double None
+50 job_insert double None
+51 job_update double None
+52 emix double None
+53 date_part int None
+56 date_part int None
+[05.03.2026 17:56] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.dealloan_sdim
+======================================================================
+Колонок: 67
+col_name data_type comment
+0 UK double None
+1 DEAL_REF string None
+2 CLIENT_UK double None
+3 CLIENT_PIN string None
+4 START_DATE string None
+... ... ... ...
+62 ENDLIMIT_PAYMENTPERIOD_NO double None
+63 PAYMENT_LAST_DATE string None
+64 MIGRATIONBANK_FLAG string None
+65 MIGRATIONBANK_UK double None
+66 MIGRBANKPRODUCT_CCODE string None
+[05.03.2026 17:56] Максим Сухацкий: ======================================================================
+DESCRIBE s_dmrb.offer_sdim
+======================================================================
+Колонок: 22
+col_name data_type comment
+0 uk double Predlozhenie: Unikalnyj identifikator predlozh...
+1 ccode string Predlozhenie: Kod predlozhenija
+2 client_pin string Predlozhenie: Klient. PIN
+3 client_uk double Predlozhenie: Klient
+4 module_uk double Predlozhenie: Sistema-istochnik
+5 offerservicestatus_uk double Predlozhenie: Tehnologicheskij status predlozh...
+6 offerstatus_uk double Predlozhenie: Status predlozhenija
+7 offer_end_date string Predlozhenie: Data/vremja okonchanija dejstvij...
+8 offer_start_date string Predlozhenie: Data/vremja nachala dejstvija pr...
+9 rbsalescampaign_uk double Predlozhenie: Marketingovaja kampanija
+10 src_ccode string Predlozhenie: Kod predlozhenija v sisteme-isto...
+11 status_update_date string Predlozhenie: Data ustanovki statusa
+12 default_flag string Predlozhenie: Priznak zapisi, vvedennoj v hran...
+13 deleted_flag string Predlozhenie: Priznak udalenija zapisi
+14 emix double Predlozhenie: Unikalnyj kod sochetanija ishod...
+15 job_insert double Predlozhenie: Identifikator JOB’a, kotoryj vs...
+16 job_update double Predlozhenie: Identifikator JOB’a, kotoryj ob...
+17 as_of_day string Predlozhenie: Data aktualizatsii DWH
+18 dealclass_uk double Predlozhenie: Produkt SI
+19 dealclasssubtp_uk double Predlozhenie: Tip produkta SI
+20 month_part int None
+23 month_part int None
